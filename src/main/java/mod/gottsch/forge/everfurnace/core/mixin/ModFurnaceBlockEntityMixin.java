@@ -23,9 +23,7 @@ import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.inventory.RecipeHolder;
 import net.minecraft.world.inventory.StackedContentsCompatible;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
@@ -44,12 +42,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AbstractFurnaceBlockEntity.class)
 public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntity implements WorldlyContainer, RecipeHolder, StackedContentsCompatible {
 
+    @Unique
     private static final int INPUT_SLOT = 0;
+    @Unique
     private static final int FUEL_SLOT = 1;
+    @Unique
     private static final int OUTPUT_SLOT = 2;
+    @Unique
+    private static final String LAST_GAME_TIME_TAG = "everfurnace_lastGameTime";
 
     @Unique
-    private long lastGameTime;
+    private long everFurnace_1_20_1$lastGameTime;
 
     protected ModFurnaceBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -57,12 +60,12 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
 
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void onSave(CompoundTag tag, CallbackInfo ci) {
-        tag.putLong("lastGameTime", this.lastGameTime);
+        tag.putLong(LAST_GAME_TIME_TAG, this.everFurnace_1_20_1$lastGameTime);
     }
 
     @Inject(method = "load", at = @At("TAIL"))
     private void onLoad(CompoundTag tag, CallbackInfo ci) {
-        this.lastGameTime = tag.getLong("lastGameTime");
+        this.everFurnace_1_20_1$lastGameTime = tag.getLong(LAST_GAME_TIME_TAG);
     }
 
     /**
@@ -79,8 +82,8 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         ModFurnaceBlockEntityMixin blockEntityMixin = (ModFurnaceBlockEntityMixin)(Object) blockEntity;
 
         // record last world time
-        long localLastGameTime = blockEntityMixin.everFurnace_1_18_2$getLastGameTime();
-        blockEntityMixin.everFurnace_1_18_2$setLastGameTime(blockEntity.getLevel().getGameTime());
+        long localLastGameTime = blockEntityMixin.everFurnace_1_20_1$getLastGameTime();
+        blockEntityMixin.everFurnace_1_20_1$setLastGameTime(blockEntity.getLevel().getGameTime());
 
         if (!blockEntity.isLit()){
             return;
@@ -108,8 +111,8 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         if (!outputStack.isEmpty() && outputStack.getCount() == blockEntity.getMaxStackSize()) return;
 
         // test if can accept recipe output
-        Recipe<?> recipe = world.getRecipeManager().getRecipeFor((RecipeType<AbstractCookingRecipe>)blockEntity.recipeType, blockEntity, world).orElse(null);
-        if (!blockEntity.canBurn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) return;
+        Recipe<?> recipe = blockEntity.quickCheck.getRecipeFor(blockEntity, world).orElse(null);
+        if (!blockEntity.canBurn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) return;
         /////////////////////////
 
         /*
@@ -141,7 +144,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
                 fuelStack.shrink(1);
                 if (fuelStack.isEmpty()) {
                     blockEntity.litTime = 0;
-                    blockEntity.items.set(1, !fuelStack.hasContainerItem() ? ItemStack.EMPTY : fuelStack.getContainerItem());
+                    blockEntity.items.set(1, fuelStack.getCraftingRemainingItem());
                 } else {
                     blockEntity.litTime =+ blockEntity.litDuration;
                 }
@@ -160,7 +163,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             }
             if (fuelStack.isEmpty()) {
                 blockEntity.litTime = 0;
-                blockEntity.items.set(1, !fuelStack.hasContainerItem() ? ItemStack.EMPTY : fuelStack.getContainerItem());
+                blockEntity.items.set(1, fuelStack.getCraftingRemainingItem());
             } else {
                 blockEntity.litTime =+ blockEntity.litDuration;
             }
@@ -170,7 +173,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             // increment cook time
             blockEntity.cookingProgress =+ (int) actualAppliedTime;
             if (blockEntity.cookingProgress >= blockEntity.cookingTotalTime) {
-                if (blockEntity.burn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
+                if (blockEntity.burn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
                     blockEntity.setRecipeUsed(recipe);
                 }
                 if (cookStack.isEmpty()) {
@@ -189,7 +192,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             // reduced stack by quotient
             boolean isSuccessful = false;
             for (int iterations = 0; iterations < quotient; iterations++) {
-                isSuccessful |= blockEntity.burn(recipe, blockEntity.items, blockEntity.getMaxStackSize());
+                isSuccessful |= blockEntity.burn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize());
             }
             // update last recipe
             if (isSuccessful) blockEntity.setRecipeUsed(recipe);
@@ -197,7 +200,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             // increment cook time
             blockEntity.cookingProgress =+ (int) remainder;
             if (blockEntity.cookingProgress >= blockEntity.cookingTotalTime) {
-                if (blockEntity.burn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
+                if (blockEntity.burn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
                     blockEntity.setRecipeUsed(recipe);
                 }
                 if (cookStack.isEmpty()) {
@@ -217,13 +220,13 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     }
 
     @Unique
-    public long everFurnace_1_18_2$getLastGameTime() {
-        return this.lastGameTime;
+    public long everFurnace_1_20_1$getLastGameTime() {
+        return this.everFurnace_1_20_1$lastGameTime;
     }
 
     @Unique
-    public void everFurnace_1_18_2$setLastGameTime(long gameTime) {
-        this.lastGameTime = gameTime;
+    public void everFurnace_1_20_1$setLastGameTime(long gameTime) {
+        this.everFurnace_1_20_1$lastGameTime = gameTime;
     }
 
 }
