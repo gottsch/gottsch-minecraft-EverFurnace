@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "mod.gottsch.forge.everfurnace.core.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "everfurnace.refmap.json",
+  "mixins": [
+    "ModFurnaceBlockEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
