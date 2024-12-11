@@ -1,4 +1,4 @@
-# Changelog for EverFurnace 1.18.2
+# Changelog for EverFurnace 1.16.5
 
 All notable changes to this project will be documented in this file.
 

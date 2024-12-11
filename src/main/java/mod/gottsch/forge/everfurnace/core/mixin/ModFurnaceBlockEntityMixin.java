@@ -17,6 +17,7 @@
  */
 package mod.gottsch.forge.everfurnace.core.mixin;
 
+import net.minecraft.block.AbstractFurnaceBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.inventory.IRecipeHelperPopulator;
 import net.minecraft.inventory.IRecipeHolder;
@@ -107,8 +108,8 @@ public abstract class ModFurnaceBlockEntityMixin extends LockableTileEntity impl
         if (!outputStack.isEmpty() && outputStack.getCount() == blockEntity.getMaxStackSize()) return;
 
         // test if can accept recipe output
-        IRecipe<?> recipe = (IRecipe)blockEntity.getLevel().getRecipeManager().getRecipeFor(blockEntity.recipeType, this, blockEntity.getLevel()).orElse((Object)null);
-        if (!blockEntity.canBurn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) return;
+        IRecipe<?> recipe = (IRecipe)blockEntity.getLevel().getRecipeManager().getRecipeFor(blockEntity.recipeType, this, blockEntity.getLevel()).orElse(null);
+        if (!blockEntity.canBurn(recipe)) return;
         /////////////////////////
 
         /*
@@ -169,9 +170,7 @@ public abstract class ModFurnaceBlockEntityMixin extends LockableTileEntity impl
             // increment cook time
             blockEntity.cookingProgress =+ (int) actualAppliedTime;
             if (blockEntity.cookingProgress >= blockEntity.cookingTotalTime) {
-                if (blockEntity.burn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
-                    blockEntity.setRecipeUsed(recipe);
-                }
+                blockEntity.burn(recipe);
                 if (cookStack.isEmpty()) {
                     blockEntity.cookingProgress = 0;
                     blockEntity.cookingTotalTime = 0;
@@ -188,17 +187,13 @@ public abstract class ModFurnaceBlockEntityMixin extends LockableTileEntity impl
             // reduced stack by quotient
             boolean isSuccessful = false;
             for (int iterations = 0; iterations < quotient; iterations++) {
-                isSuccessful |= blockEntity.burn(recipe, blockEntity.items, blockEntity.getMaxStackSize());
+                blockEntity.burn(recipe);
             }
-            // update last recipe
-            if (isSuccessful) blockEntity.setRecipeUsed(recipe);
 
             // increment cook time
             blockEntity.cookingProgress =+ (int) remainder;
             if (blockEntity.cookingProgress >= blockEntity.cookingTotalTime) {
-                if (blockEntity.burn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
-                    blockEntity.setRecipeUsed(recipe);
-                }
+                blockEntity.burn(recipe);
                 if (cookStack.isEmpty()) {
                     blockEntity.cookingProgress = 0;
                     blockEntity.cookingTotalTime = 0;
@@ -209,9 +204,7 @@ public abstract class ModFurnaceBlockEntityMixin extends LockableTileEntity impl
         }
 
         if(!blockEntity.isLit()) {
-            state = state.setValue(AbstractFurnaceBlock.LIT, blockEntity.isLit());
-            world.setBlock(pos, state, 3);
-            AbstractFurnaceBlockEntity.setChanged(world, pos, state);
+            blockEntity.getLevel().setBlock(this.worldPosition, (BlockState)this.level.getBlockState(this.worldPosition).setValue(AbstractFurnaceBlock.LIT, blockEntity.isLit()), 3);
         }
     }
 
