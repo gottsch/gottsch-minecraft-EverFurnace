@@ -17,70 +17,69 @@
  */
 package mod.gottsch.forge.everfurnace.core.mixin;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.WorldlyContainer;
-import net.minecraft.world.inventory.RecipeHolder;
-import net.minecraft.world.inventory.StackedContentsCompatible;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.AbstractCookingRecipe;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.AbstractFurnaceBlock;
-import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
-import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.BlockState;
+import net.minecraft.inventory.IRecipeHelperPopulator;
+import net.minecraft.inventory.IRecipeHolder;
+import net.minecraft.inventory.ISidedInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.tileentity.AbstractFurnaceTileEntity;
+import net.minecraft.tileentity.ITickableTileEntity;
+import net.minecraft.tileentity.LockableTileEntity;
+import net.minecraft.tileentity.TileEntityType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Created by Mark Gottschling on 12/9/2024
  */
-@Mixin(AbstractFurnaceBlockEntity.class)
-public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntity implements WorldlyContainer, RecipeHolder, StackedContentsCompatible {
-
-    private static final int INPUT_SLOT = 0;
-    private static final int FUEL_SLOT = 1;
-    private static final int OUTPUT_SLOT = 2;
+@Mixin(AbstractFurnaceTileEntity.class)
+public abstract class ModFurnaceBlockEntityMixin extends LockableTileEntity implements ISidedInventory, IRecipeHolder, IRecipeHelperPopulator, ITickableTileEntity {
 
     @Unique
-    private long lastGameTime;
+    private static final int INPUT_SLOT = 0;
+    @Unique
+    private static final int FUEL_SLOT = 1;
+    @Unique
+    private static final int OUTPUT_SLOT = 2;
+    @Unique
+    private static final String LAST_GAME_TIME_TAG = "everfurnace_lastGameTime";
+    @Unique
+    private long everFurnace_1_16_5$lastGameTime;
 
-    protected ModFurnaceBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
+    protected ModFurnaceBlockEntityMixin(TileEntityType<?> type) {
+        super(type);
     }
 
-    @Inject(method = "saveAdditional", at = @At("TAIL"))
-    private void onSave(CompoundTag tag, CallbackInfo ci) {
-        tag.putLong("lastGameTime", this.lastGameTime);
+
+    @Inject(method = "save", at = @At("TAIL"))
+    private void onSave(CompoundNBT tag, CallbackInfoReturnable<CompoundNBT> cir) {
+        tag.putLong(LAST_GAME_TIME_TAG, this.everFurnace_1_16_5$lastGameTime);
     }
 
     @Inject(method = "load", at = @At("TAIL"))
-    private void onLoad(CompoundTag tag, CallbackInfo ci) {
-        this.lastGameTime = tag.getLong("lastGameTime");
+    private void onLoad(BlockState state, CompoundNBT tag, CallbackInfo ci) {
+        this.everFurnace_1_16_5$lastGameTime = tag.getLong(LAST_GAME_TIME_TAG);
     }
 
     /**
      * a simple mixin that executes at the beginning of the Furnace's (BlastFurnace, Smoker) tick event.
-     * @param world
-     * @param pos
-     * @param state
-     * @param blockEntity
      * @param ci
      */
-    @Inject(method = "serverTick", at = @At("HEAD")) // target more specifically somewhere closer to the actual calculations?
-    private static void onTick(Level world, BlockPos pos, BlockState state, AbstractFurnaceBlockEntity blockEntity, CallbackInfo ci) {
+    @Inject(method = "tick", at = @At("HEAD")) // target more specifically somewhere closer to the actual calculations?
+    private void onTick(CallbackInfo ci) {
         // cast block entity as a mixin block entity
-        ModFurnaceBlockEntityMixin blockEntityMixin = (ModFurnaceBlockEntityMixin)(Object) blockEntity;
+        ModFurnaceBlockEntityMixin blockEntityMixin = (ModFurnaceBlockEntityMixin)(Object)this;
+        AbstractFurnaceTileEntity blockEntity = (AbstractFurnaceTileEntity)(Object) this;
 
         // record last world time
-        long localLastGameTime = blockEntityMixin.everFurnace_1_18_2$getLastGameTime();
-        blockEntityMixin.everFurnace_1_18_2$setLastGameTime(blockEntity.getLevel().getGameTime());
+        long localLastGameTime = blockEntityMixin.everFurnace_1_16_5$getLastGameTime();
+        blockEntityMixin.everFurnace_1_16_5$setLastGameTime(blockEntity.getLevel().getGameTime());
 
         if (!blockEntity.isLit()){
             return;
@@ -108,7 +107,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         if (!outputStack.isEmpty() && outputStack.getCount() == blockEntity.getMaxStackSize()) return;
 
         // test if can accept recipe output
-        Recipe<?> recipe = world.getRecipeManager().getRecipeFor((RecipeType<AbstractCookingRecipe>)blockEntity.recipeType, blockEntity, world).orElse(null);
+        IRecipe<?> recipe = (IRecipe)blockEntity.getLevel().getRecipeManager().getRecipeFor(blockEntity.recipeType, this, blockEntity.getLevel()).orElse((Object)null);
         if (!blockEntity.canBurn(recipe, blockEntity.items, blockEntity.getMaxStackSize())) return;
         /////////////////////////
 
@@ -217,13 +216,13 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     }
 
     @Unique
-    public long everFurnace_1_18_2$getLastGameTime() {
-        return this.lastGameTime;
+    public long everFurnace_1_16_5$getLastGameTime() {
+        return this.everFurnace_1_16_5$lastGameTime;
     }
 
     @Unique
-    public void everFurnace_1_18_2$setLastGameTime(long gameTime) {
-        this.lastGameTime = gameTime;
+    public void everFurnace_1_16_5$setLastGameTime(long gameTime) {
+        this.everFurnace_1_16_5$lastGameTime = gameTime;
     }
 
 }
