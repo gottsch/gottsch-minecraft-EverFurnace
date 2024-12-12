@@ -17,8 +17,8 @@
  */
 package mod.gottsch.forge.everfurnace.core.mixin;
 
-import mod.gottsch.forge.everfurnace.EverFurnace;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.inventory.RecipeCraftingHolder;
@@ -53,20 +53,20 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     private static final String LAST_GAME_TIME_TAG = "everfurnace_lastGameTime";
 
     @Unique
-    private long everFurnace_1_20_4$lastGameTime;
+    private long everFurnace_1_20_6$lastGameTime;
 
     protected ModFurnaceBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
     }
 
     @Inject(method = "saveAdditional", at = @At("TAIL"))
-    private void onSave(CompoundTag tag, CallbackInfo ci) {
-        tag.putLong(LAST_GAME_TIME_TAG, this.everFurnace_1_20_4$lastGameTime);
+    private void onSave(CompoundTag tag, HolderLookup.Provider provider, CallbackInfo ci) {
+        tag.putLong(LAST_GAME_TIME_TAG, this.everFurnace_1_20_6$lastGameTime);
     }
 
-    @Inject(method = "load", at = @At("TAIL"))
-    private void onLoad(CompoundTag tag, CallbackInfo ci) {
-        this.everFurnace_1_20_4$lastGameTime = tag.getLong(LAST_GAME_TIME_TAG);
+    @Inject(method = "loadAdditional", at = @At("TAIL"))
+    private void onLoad(CompoundTag tag, HolderLookup.Provider provider, CallbackInfo ci) {
+        this.everFurnace_1_20_6$lastGameTime = tag.getLong(LAST_GAME_TIME_TAG);
     }
 
     /**
@@ -83,8 +83,8 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         ModFurnaceBlockEntityMixin blockEntityMixin = (ModFurnaceBlockEntityMixin)(Object) blockEntity;
 
         // record last world time
-        long localLastGameTime = blockEntityMixin.everFurnace_1_20_4$getLastGameTime();
-        blockEntityMixin.everFurnace_1_20_4$setLastGameTime(world.getGameTime());
+        long localLastGameTime = blockEntityMixin.everFurnace_1_20_6$getLastGameTime();
+        blockEntityMixin.everFurnace_1_20_6$setLastGameTime(blockEntity.getLevel().getGameTime());
         if (!blockEntity.isLit()){
             return;
         }
@@ -218,13 +218,13 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     }
 
     @Unique
-    public long everFurnace_1_20_4$getLastGameTime() {
-        return this.everFurnace_1_20_4$lastGameTime;
+    public long everFurnace_1_20_6$getLastGameTime() {
+        return this.everFurnace_1_20_6$lastGameTime;
     }
 
     @Unique
-    public void everFurnace_1_20_4$setLastGameTime(long gameTime) {
-        this.everFurnace_1_20_4$lastGameTime = gameTime;
+    public void everFurnace_1_20_6$setLastGameTime(long gameTime) {
+        this.everFurnace_1_20_6$lastGameTime = gameTime;
     }
 
 }
