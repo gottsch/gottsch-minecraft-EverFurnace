@@ -17,6 +17,7 @@
  */
 package mod.gottsch.forge.everfurnace.core.mixin;
 
+import mod.gottsch.forge.everfurnace.EverFurnace;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.WorldlyContainer;
@@ -52,7 +53,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     private static final String LAST_GAME_TIME_TAG = "everfurnace_lastGameTime";
 
     @Unique
-    private long everFurnace_1_20_2$lastGameTime;
+    private long everFurnace_1_20_4$lastGameTime;
 
     protected ModFurnaceBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -60,12 +61,12 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
 
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void onSave(CompoundTag tag, CallbackInfo ci) {
-        tag.putLong(LAST_GAME_TIME_TAG, this.everFurnace_1_20_2$lastGameTime);
+        tag.putLong(LAST_GAME_TIME_TAG, this.everFurnace_1_20_4$lastGameTime);
     }
 
     @Inject(method = "load", at = @At("TAIL"))
     private void onLoad(CompoundTag tag, CallbackInfo ci) {
-        this.everFurnace_1_20_2$lastGameTime = tag.getLong(LAST_GAME_TIME_TAG);
+        this.everFurnace_1_20_4$lastGameTime = tag.getLong(LAST_GAME_TIME_TAG);
     }
 
     /**
@@ -82,9 +83,8 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         ModFurnaceBlockEntityMixin blockEntityMixin = (ModFurnaceBlockEntityMixin)(Object) blockEntity;
 
         // record last world time
-        long localLastGameTime = blockEntityMixin.everFurnace_1_20_2$getLastGameTime();
-        blockEntityMixin.everFurnace_1_20_2$setLastGameTime(blockEntity.getLevel().getGameTime());
-
+        long localLastGameTime = blockEntityMixin.everFurnace_1_20_4$getLastGameTime();
+        blockEntityMixin.everFurnace_1_20_4$setLastGameTime(world.getGameTime());
         if (!blockEntity.isLit()){
             return;
         }
@@ -139,7 +139,6 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             // reduce burn time
             blockEntity.litTime =- (int) actualAppliedTime;
             if (blockEntity.litTime <= 0) {
-//                Item fuelItem = fuelStack.getItem();
                 // reduce the size of the fuel stack
                 fuelStack.shrink(1);
                 if (fuelStack.isEmpty()) {
@@ -153,7 +152,6 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             int quotient = (int) (Math.floor((double) actualAppliedTime / blockEntity.litDuration));
             long remainder = actualAppliedTime % blockEntity.litDuration;
             // reduced stack by quotient
-//            Item fuelItem = fuelStack.getItem();
             fuelStack.shrink(quotient);
             // reduce litTime by remainder
             blockEntity.litTime =- (int)remainder;
@@ -220,13 +218,13 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     }
 
     @Unique
-    public long everFurnace_1_20_2$getLastGameTime() {
-        return this.everFurnace_1_20_2$lastGameTime;
+    public long everFurnace_1_20_4$getLastGameTime() {
+        return this.everFurnace_1_20_4$lastGameTime;
     }
 
     @Unique
-    public void everFurnace_1_20_2$setLastGameTime(long gameTime) {
-        this.everFurnace_1_20_2$lastGameTime = gameTime;
+    public void everFurnace_1_20_4$setLastGameTime(long gameTime) {
+        this.everFurnace_1_20_4$lastGameTime = gameTime;
     }
 
 }
