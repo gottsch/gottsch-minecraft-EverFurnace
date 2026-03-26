@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-03-26
+
+### 🐛 Fixed
+
+- **Dedicated server crash on startup** — `CatchupParticlePacket` referenced `Minecraft`
+  (a client-only class) directly in its packet handler. On a dedicated server, Forge
+  attempted to load the class during packet registration and threw a
+  `BootstrapMethodError` with `Attempted to load class ... for invalid dist DEDICATED_SERVER`.
+  Fixed by splitting client-side particle logic into a separate `CatchupParticleHandler`
+  class annotated `@OnlyIn(Dist.CLIENT)`, and delegating to it from the packet via
+  `DistExecutor.unsafeRunWhenOn(Dist.CLIENT, ...)` so the server never touches client
+  classes.
+
+---
+
 ## [2.0.0] - 2026-03-24
 
 ### 🎉 Highlights
