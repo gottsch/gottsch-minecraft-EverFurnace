@@ -110,6 +110,32 @@ public final class EverFurnaceConfig {
          */
         public final ForgeConfigSpec.BooleanValue notifyPlayerOnCatchup;
 
+        /**
+         * minimum game-time ticks that must have passed since the last
+         * notification was sent before a new one is armed.
+         *
+         * <p>items cooked during the cooldown period are <em>always</em>
+         * accumulated into {@code everfurnace_pendingNotification} — the
+         * cooldown only controls whether the notification timer resets,
+         * preventing rapid chunk-load/unload cycles from spamming chat.
+         *
+         * <p>set to {@code 0} to disable the cooldown entirely (every
+         * catch-up pass that cooks items will arm a notification).
+         * default: {@code 200} ticks (10 seconds). Range: 0 – 72 000.
+         */
+        public final ForgeConfigSpec.LongValue notificationCooldownTicks;
+
+        /**
+         * when {@code true}, queued notifications are also delivered on player
+         * login, not only when the player manually opens the furnace.
+         *
+         * <p>useful on multiplayer servers where catch-up fires on chunk load
+         * before the owning player has connected. without this option the
+         * notification sits in NBT until the player physically opens each furnace.
+         */
+        public final ForgeConfigSpec.BooleanValue notifyOnLogin;
+
+
         Common(ForgeConfigSpec.Builder builder) {
             builder.comment("EverFurnace — Common (server-side) configuration")
                     .push("catchup");
@@ -137,6 +163,22 @@ public final class EverFurnaceConfig {
                             "cooked items while they were away. Requires Feature B to be implemented.")
                     .define("notifyPlayerOnCatchup", true);
 
+            notificationCooldownTicks = builder
+                    .comment("Minimum ticks between notification arms for a single furnace.",
+                            "Items cooked during the cooldown are still counted — they are batched",
+                            "into the existing pending notification rather than dropped.",
+                            "Set to 0 to disable the cooldown (notify on every catch-up pass).",
+                            "Range: 0 – 72 000  |  Default: 200 (10 seconds)")
+                    .defineInRange("notificationCooldownTicks", 200L, 0L, 72_000L);
+
+            notifyOnLogin = builder
+                    .comment("Deliver pending furnace notifications when the player logs in,",
+                            "in addition to when they open a furnace.",
+                            "Recommended on multiplayer servers where catch-up may fire before",
+                            "the owning player has connected.",
+                            "Default: true")
+                    .define("notifyOnLogin", true);
+
             builder.pop();
         }
     }
@@ -155,6 +197,21 @@ public final class EverFurnaceConfig {
          */
         public final ForgeConfigSpec.BooleanValue particleBurstEnabled;
 
+        /**
+         * play a furnace crackle sound at the furnace position when catch-up
+         * completes and at least one item was cooked.
+         * client-side only — no effect on dedicated servers.
+         */
+        public final ForgeConfigSpec.BooleanValue soundCueEnabled;
+
+        /**
+         * snap the furnace block's LIT state on the client immediately after
+         * catch-up completes, ensuring the visual light level reflects the
+         * post-catch-up state without waiting for the next server sync.
+         * C=client-side only — no effect on dedicated servers.
+         */
+        public final ForgeConfigSpec.BooleanValue lightFlickerEnabled;
+
         Client(ForgeConfigSpec.Builder builder) {
             builder.comment("EverFurnace — Client-side configuration")
                     .push("visuals");
@@ -163,6 +220,17 @@ public final class EverFurnaceConfig {
                     .comment("Spawn a flame/smoke particle burst at a furnace when catch-up completes",
                             "and at least one item was cooked. Client-side only — no effect on servers.")
                     .define("particleBurstEnabled", true);
+
+            soundCueEnabled = builder
+                    .comment("Play a furnace crackle sound when catch-up completes",
+                            "and at least one item was cooked.")
+                    .define("soundCueEnabled", true);
+
+            lightFlickerEnabled = builder
+                    .comment("Immediately sync the furnace LIT block state on the client",
+                            "when catch-up completes, so the light level updates without",
+                            "waiting for the next server block update.")
+                    .define("lightFlickerEnabled", true);
 
             builder.pop();
         }

@@ -43,7 +43,7 @@ public class CatchupParticlePacket {
         NetworkEvent.Context ctx = ctxSupplier.get();
         ctx.enqueueWork(() ->
                 DistExecutor.unsafeRunWhenOn(Dist.CLIENT,
-                        () -> () -> CatchupParticleHandler.spawnParticles(packet.pos))
+                        () -> () -> CatchupParticleHandler.handle(packet.pos))
         );
         ctx.setPacketHandled(true);
     }
