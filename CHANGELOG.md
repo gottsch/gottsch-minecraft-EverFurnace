@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-03-29
+
+### 🎉 Highlights
+
+#### XP Catch-Up
+- XP that would have been awarded during offline smelting is no longer silently lost.
+- EverFurnace accumulates owed XP during each catch-up pass and awards it the next
+  time the player opens the furnace.
+- Fractional XP values (e.g. iron ore awards 0.7 XP per item) are handled correctly —
+  the remainder carries over across multiple opens until it tips over a whole point.
+
+#### Login Notifications
+- On multiplayer servers, pending furnace notifications are now delivered on player
+  login rather than only when the player physically opens each furnace.
+- If multiple furnaces have pending notifications, a single summary message is sent:
+  `[EverFurnace] 3 furnaces cooked a combined 96 items while you were away.`
+- Controlled by the new `notifyOnLogin` config key (default `true`).
+
+#### Notification Cooldown
+- Rapid chunk-load/unload cycles can no longer flood chat with repeated notifications.
+- Notifications from the same furnace are batched until the cooldown window expires.
+- Items cooked during the cooldown are never dropped — they accumulate into the
+  existing pending count and are delivered together.
+- Controlled by `notificationCooldownTicks` (default `200` / 10 seconds).
+
+#### Sound Cue
+- A furnace crackle sound plays at the furnace position when catch-up completes and
+  at least one item was cooked, giving an audio cue alongside the particle burst.
+- Client-side only. Can be disabled via `soundCueEnabled` in `everfurnace-client.toml`.
+
+#### Light State Snap
+- The furnace block's LIT state is now immediately synced on the client when catch-up
+  completes, so the local light level updates without waiting for the next server
+  block-update packet.
+- Client-side only. Can be disabled via `lightFlickerEnabled` in `everfurnace-client.toml`.
+
+### ⚙️ Changed
+
+- **`everfurnace-common.toml`** — two new keys in the `notifications` section:
+  - `notificationCooldownTicks` (long, default `200`, range `0–72 000`)
+  - `notifyOnLogin` (boolean, default `true`)
+- **`everfurnace-client.toml`** — two new keys in the `visuals` section:
+  - `soundCueEnabled` (boolean, default `true`)
+  - `lightFlickerEnabled` (boolean, default `true`)
+
+---
+
 ## [2.0.1] - 2026-03-26
 
 ### 🐛 Fixed
