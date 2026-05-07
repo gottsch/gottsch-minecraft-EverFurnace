@@ -23,3 +23,4 @@ EverFurnace targets <code>AbstractFurnaceBlockEntity</code> via Mixin, so it aut
 
 ## Discord
 >[https://discord.gg/MskxMMRD](https://discord.gg/CpWXamx)
+
