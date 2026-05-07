@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-05-07
+
+### ✨ Added
+
+- **Admin commands** — `/everfurnace inspect [x y z]`, `/everfurnace tick <radius>`,
+  `/everfurnace simulate <radius> <ticks>`. Require permission level 2.
+  - `inspect` shows the stored EverFurnace state (lastGameTime, delta,
+    pendingNotification, pendingXp) and whether catch-up would fire on the next tick.
+  - `tick` forces `serverTick` on every loaded furnace within the given radius,
+    triggering catch-up immediately. Positions are snapshotted before iteration to
+    avoid concurrent-modification hazards.
+  - `simulate` backdates `lastGameTime` by the given number of ticks on every loaded
+    furnace within the given radius (radius guard prevents accidental dimension-wide
+    backdating). Follow with `tick` to apply catch-up instantly during testing.
+
+### 🐛 Fixed
+
+- **Vanilla clients can now connect to servers running EverFurnace** — the channel is
+  now registered with `acceptMissingOr`, so unmodded clients skip the packet handshake
+  silently instead of being kicked.
+- **Particle packets are no longer sent to vanilla clients** — `sendCatchupParticles`
+  now checks `isRemotePresent` before sending, so only players with the mod installed
+  receive the effect packet.
+- **`mods.toml`** now declares `displayTest = "IGNORE_ALL_VERSION"` — Forge will not
+  require clients to have the mod installed to join a server running it.
+
+---
+
 ## [2.1.0] - 2026-03-29
 
 ### 🎉 Highlights

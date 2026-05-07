@@ -3,7 +3,7 @@ package mod.gottsch.forge.everfurnace.core.furnace;
 /**
  * @author by Mark Gottschling on 3/29/2026
  */
-public interface ModFurnaceBlockEntityInterface {
+public interface IEverFurnaceBlockEntity {
 
     public long everFurnace_1_20_1$getLastGameTime();
     public void everFurnace_1_20_1$setLastGameTime(long gameTime);

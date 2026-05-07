@@ -1,12 +1,11 @@
 package mod.gottsch.forge.everfurnace.core.mixin;
 
 import mod.gottsch.forge.everfurnace.core.config.EverFurnaceConfig;
-import mod.gottsch.forge.everfurnace.core.furnace.ModFurnaceBlockEntityInterface;
-import mod.gottsch.forge.everfurnace.core.network.CatchupParticlePacket;
 import mod.gottsch.forge.everfurnace.core.network.ModNetwork;
 import mod.gottsch.forge.everfurnace.core.util.CookResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.inventory.RecipeHolder;
 import net.minecraft.world.inventory.StackedContentsCompatible;
@@ -19,7 +18,6 @@ import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.network.PacketDistributor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -27,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(AbstractFurnaceBlockEntity.class)
-public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntity implements ModFurnaceBlockEntityInterface, WorldlyContainer, RecipeHolder, StackedContentsCompatible {
+public abstract class EverFurnaceBlockEntityMixin extends BaseContainerBlockEntity implements IEverFurnaceBlockEntityMixin, WorldlyContainer, RecipeHolder, StackedContentsCompatible {
 
     // -------------------------------------------------------------------------
     // constants
@@ -86,7 +84,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     // Required mixin constructor
     // -------------------------------------------------------------------------
 
-    protected ModFurnaceBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+    protected EverFurnaceBlockEntityMixin(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
     }
 
@@ -139,7 +137,8 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
 
         if (!EverFurnaceConfig.COMMON.catchupEnabled.get()) return;
 
-        ModFurnaceBlockEntityMixin mixin = (ModFurnaceBlockEntityMixin)(Object) blockEntity;
+        EverFurnaceBlockEntityMixin mixin = (EverFurnaceBlockEntityMixin)(Object) blockEntity;
+        IEverFurnaceBlockEntityMixin ife  = (IEverFurnaceBlockEntityMixin)(Object) blockEntity;
 
         long currentGameTime   = blockEntity.getLevel().getGameTime();
         long localLastGameTime = mixin.everFurnace_1_20_1$getLastGameTime();
@@ -165,7 +164,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         if (!outputStack.isEmpty() && outputStack.getCount() == blockEntity.getMaxStackSize()) return;
 
         Recipe<?> recipe = blockEntity.quickCheck.getRecipeFor(blockEntity, world).orElse(null);
-        if (!blockEntity.canBurn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) return;
+        if (!ife.callCanBurn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) return;
 
         ItemStack fuelStack = blockEntity.items.get(FUEL_SLOT);
         if (fuelStack.isEmpty()) return;
@@ -184,11 +183,11 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
 
         // ── Consume fuel ─────────────────────────────────────────────────────
 
-        applyFuelTime(blockEntity, fuelStack, actualAppliedTime);
+        everFurnace_1_20_1$applyFuelTime(blockEntity, fuelStack, actualAppliedTime);
 
         // ── Advance cooking ──────────────────────────────────────────────────
 
-        CookResult result = applyCookTime(world, blockEntity, recipe, cookStack, actualAppliedTime);
+        CookResult result = everFurnace_1_20_1$applyCookTime(world, blockEntity, ife, recipe, cookStack, actualAppliedTime);
 
         // ── Notification bookkeeping (Feature B + J) ─────────────────────────
 
@@ -212,11 +211,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
         // ── Particle burst (Feature D) ───────────────────────────────────────
 
         if (result.itemsCooked() > 0) {
-            ModNetwork.CHANNEL.send(
-                    PacketDistributor.NEAR.with(() ->
-                            new PacketDistributor.TargetPoint(
-                                    pos.getX(), pos.getY(), pos.getZ(), 32, world.dimension())),
-                    new CatchupParticlePacket(pos));
+            ModNetwork.sendCatchupParticles((ServerLevel) world, pos);
         }
 
         // ── Sync ─────────────────────────────────────────────────────────────
@@ -239,8 +234,8 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
      * {@code blockEntity.litTime} accordingly.
      */
     @Unique
-    private static void applyFuelTime(AbstractFurnaceBlockEntity blockEntity,
-                                      ItemStack fuelStack, long ticks) {
+    private static void everFurnace_1_20_1$applyFuelTime(AbstractFurnaceBlockEntity blockEntity,
+                                                         ItemStack fuelStack, long ticks) {
         long totalConsumed = ticks;
         int  litDuration   = blockEntity.litDuration;
 
@@ -268,17 +263,16 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
     }
 
     /**
-     * advances cooking progress by {@code ticks}, calling
-     * {@link AbstractFurnaceBlockEntity#burn} for each item that completes.
-     *
-     * @return the number of items successfully cooked.
+     * Advance cooking progress by {@code ticks}, calling {@code burn()} for each
+     * completed item. Returns a {@link CookResult} with the cooked count and XP earned.
      */
     @Unique
-    private static CookResult applyCookTime(Level world,
-                                            AbstractFurnaceBlockEntity blockEntity,
-                                            Recipe<?> recipe,
-                                            ItemStack cookStack,
-                                            long ticks) {
+    private static CookResult everFurnace_1_20_1$applyCookTime(Level world,
+                                                               AbstractFurnaceBlockEntity blockEntity,
+                                                               IEverFurnaceBlockEntityMixin ife,
+                                                               Recipe<?> recipe,
+                                                               ItemStack cookStack,
+                                                               long ticks) {
         int cookingTotalTime = blockEntity.cookingTotalTime;
         if (cookingTotalTime <= 0) return new CookResult(0, 0f);
 
@@ -298,7 +292,7 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
             ticks -= ticksToFinishCurrent;
             blockEntity.cookingProgress = cookingTotalTime;
 
-            if (blockEntity.burn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
+            if (ife.callBurn(world.registryAccess(), recipe, blockEntity.items, blockEntity.getMaxStackSize())) {
                 blockEntity.setRecipeUsed(recipe);
                 cooked++;
                 xpEarned += xpPerItem;
@@ -310,11 +304,11 @@ public abstract class ModFurnaceBlockEntityMixin extends BaseContainerBlockEntit
                 long remainder       = ticks % cookingTotalTime;
 
                 for (long i = 0; i < additionalItems; i++) {
-                    if (!blockEntity.canBurn(world.registryAccess(), recipe,
+                    if (!ife.callCanBurn(world.registryAccess(), recipe,
                             blockEntity.items, blockEntity.getMaxStackSize())) {
                         break;
                     }
-                    if (blockEntity.burn(world.registryAccess(), recipe,
+                    if (ife.callBurn(world.registryAccess(), recipe,
                             blockEntity.items, blockEntity.getMaxStackSize())) {
                         blockEntity.setRecipeUsed(recipe);
                         cooked++;

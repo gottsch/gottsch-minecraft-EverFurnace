@@ -1,7 +1,7 @@
 package mod.gottsch.forge.everfurnace.core.event;
 
 import mod.gottsch.forge.everfurnace.core.config.EverFurnaceConfig;
-import mod.gottsch.forge.everfurnace.core.furnace.ModFurnaceBlockEntityInterface;
+import mod.gottsch.forge.everfurnace.core.furnace.IEverFurnaceBlockEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -145,7 +145,7 @@ public class FurnaceEventHandler {
      * @return the item count that was pending, or {@code 0} if none.
      */
     private static int consumePendingNotification(AbstractFurnaceBlockEntity furnace) {
-        ModFurnaceBlockEntityInterface mixin = (ModFurnaceBlockEntityInterface) (Object) furnace;
+        IEverFurnaceBlockEntity mixin = (IEverFurnaceBlockEntity) (Object) furnace;
         int count = mixin.everFurnace_1_20_1$getPendingNotification();
         if (count <= 0) return 0;
         mixin.everFurnace_1_20_1$setPendingNotification(0);
@@ -164,7 +164,7 @@ public class FurnaceEventHandler {
      *         should be marked dirty.
      */
     private static boolean awardPendingXp(Player player, AbstractFurnaceBlockEntity furnace) {
-        ModFurnaceBlockEntityInterface mixin = (ModFurnaceBlockEntityInterface) (Object) furnace;
+        IEverFurnaceBlockEntity mixin = (IEverFurnaceBlockEntity) (Object) furnace;
         float pending = mixin.everFurnace_1_20_1$getPendingXp();
         if (pending <= 0f) return false;
 
