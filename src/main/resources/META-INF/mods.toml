@@ -22,6 +22,10 @@ version="${mod_version}" #mandatory
  # A display name for the mod
 displayName="EverFurnace" #mandatory
 
+# Server-side only — vanilla clients can connect without having the mod installed.
+# Clients that do have it installed get the optional particle/sound effects.
+displayTest="IGNORE_ALL_VERSION"
+
 # A URL to query for updates for this mod. See the JSON update specification <here>
 updateJSONURL="https://raw.githubusercontent.com/gottsch/gottsch-minecraft-EverFurnace/1.20.1-main/update.json" #optional
 
