@@ -5,7 +5,9 @@
   "refmap": "everfurnace.refmap.json",
   "mixins": [
     "IEverFurnaceBlockEntityMixin",
-    "EverFurnaceBlockEntityMixin"
+    "EverFurnaceBlockEntityMixin",
+    "ICampfireBlockEntityMixin",
+    "CampfireBlockEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
