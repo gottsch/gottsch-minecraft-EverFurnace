@@ -1,8 +1,12 @@
 package mod.gottsch.forge.everfurnace;
 
+import mod.gottsch.forge.everfurnace.api.EverFurnaceApi;
+import mod.gottsch.forge.everfurnace.core.catchup.CampfireCatchupHandler;
+import mod.gottsch.forge.everfurnace.core.catchup.FurnaceCatchupHandler;
 import mod.gottsch.forge.everfurnace.core.command.ModCommands;
 import mod.gottsch.forge.everfurnace.core.config.EverFurnaceConfig;
 import mod.gottsch.forge.everfurnace.core.network.ModNetwork;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 
@@ -17,7 +21,25 @@ public class EverFurnace {
         EverFurnaceConfig.register();
         ModNetwork.register();
 
-        // Register admin commands (inspect / tick / simulate) on the game bus.
+        // Wire live config values into the API so third-party handlers (and our
+        // own) can read them without importing EverFurnaceConfig directly.
+        EverFurnaceApi.bindConfig(
+                () -> EverFurnaceConfig.COMMON.catchupEnabled.get(),
+                () -> EverFurnaceConfig.COMMON.maxCatchupTicks.get(),
+                () -> EverFurnaceConfig.COMMON.minDeltaThreshold.get()
+        );
+
+        // Register built-in catch-up handlers for all vanilla cooking blocks.
+        FurnaceCatchupHandler  furnaceHandler  = new FurnaceCatchupHandler();
+        CampfireCatchupHandler campfireHandler = new CampfireCatchupHandler();
+
+        EverFurnaceApi.registerHandler(BlockEntityType.FURNACE,       furnaceHandler);
+        EverFurnaceApi.registerHandler(BlockEntityType.BLAST_FURNACE, furnaceHandler);
+        EverFurnaceApi.registerHandler(BlockEntityType.SMOKER,        furnaceHandler);
+        // Both CampfireBlock and SoulCampfireBlock share BlockEntityType.CAMPFIRE in 1.20.1.
+        EverFurnaceApi.registerHandler(BlockEntityType.CAMPFIRE, campfireHandler);
+
+        // Register admin commands on the game bus.
         MinecraftForge.EVENT_BUS.register(ModCommands.class);
     }
 }
