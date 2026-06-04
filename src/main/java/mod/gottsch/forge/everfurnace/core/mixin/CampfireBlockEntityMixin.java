@@ -1,12 +1,9 @@
 package mod.gottsch.forge.everfurnace.core.mixin;
 
-import mod.gottsch.forge.everfurnace.core.config.EverFurnaceConfig;
-import mod.gottsch.forge.everfurnace.core.network.ModNetwork;
+import mod.gottsch.forge.everfurnace.api.EverFurnaceApi;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.CampfireBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,28 +14,24 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Adds offline catch-up to vanilla campfires (and soul campfires).
+ * Timing infrastructure for EverFurnace catch-up on vanilla campfire and soul campfire.
  *
- * <p>The vanilla {@code cookTick} ticker only runs for chunks that are actually
- * ticking — i.e. within a player's simulation distance — and only while the
- * campfire is lit (otherwise {@code cooldownTick} is registered instead). So
- * proximity gating and the "is lit" check are both implicit in hooking this
- * method: while no player is near, the ticker doesn't run and the real-world
- * gap accumulates in {@link #everFurnace_1_20_1$lastGameTime}; when a player
- * brings the chunk back into range the first tick applies the catch-up.
+ * <p>Mirrors {@link EverFurnaceBlockEntityMixin} in structure: persists
+ * {@code lastGameTime}, computes {@code deltaTime}, and delegates to
+ * {@link EverFurnaceApi}.  All slot-advance logic lives in
+ * {@link mod.gottsch.forge.everfurnace.core.catchup.CampfireCatchupHandler}.
  *
- * <p>Rather than re-implement the recipe assemble / drop / slot-clear that the
- * vanilla body performs on completion, this inject simply advances each slot's
- * progress (capped at its total). A slot pushed to its total is completed by the
- * vanilla body's own {@code ++}/threshold check that runs immediately after this
- * inject returns. Each slot holds a single item and is not restocked, so output
- * is inherently bounded to one item per slot.
+ * <p>The vanilla {@code cookTick} ticker only runs for chunks within simulation
+ * distance and only while the campfire is lit, so proximity and "is lit" checks
+ * are implicit.
+ *
+ * @author Mark Gottschling
  */
 @Mixin(CampfireBlockEntity.class)
 public abstract class CampfireBlockEntityMixin {
 
-    @Unique private static final String LAST_GAME_TIME_TAG = "everfurnace_lastGameTime";
-    @Unique private static final String NBT_VERSION_TAG    = "everfurnace_version";
+    @Unique private static final String LAST_GAME_TIME_TAG  = "everfurnace_lastGameTime";
+    @Unique private static final String NBT_VERSION_TAG     = "everfurnace_version";
     @Unique private static final int    CURRENT_NBT_VERSION = 1;
 
     @Unique private long everFurnace_1_20_1$lastGameTime;
@@ -59,17 +52,16 @@ public abstract class CampfireBlockEntityMixin {
     }
 
     // -------------------------------------------------------------------------
-    // tick injection
+    // Tick injection — timing only; logic delegated to CampfireCatchupHandler
     // -------------------------------------------------------------------------
 
     @Inject(method = "cookTick", at = @At("HEAD"))
     private static void everFurnace_1_20_1$onCookTick(Level world, BlockPos pos, BlockState state,
-                                                      CampfireBlockEntity blockEntity, CallbackInfo ci) {
+                                                       CampfireBlockEntity blockEntity, CallbackInfo ci) {
 
-        if (!EverFurnaceConfig.COMMON.catchupEnabled.get()) return;
+        if (!EverFurnaceApi.isCatchupEnabled()) return;
 
-        CampfireBlockEntityMixin  mixin    = (CampfireBlockEntityMixin)(Object) blockEntity;
-        ICampfireBlockEntityMixin accessor = (ICampfireBlockEntityMixin)(Object) blockEntity;
+        CampfireBlockEntityMixin mixin = (CampfireBlockEntityMixin)(Object) blockEntity;
 
         long currentGameTime   = world.getGameTime();
         long localLastGameTime = mixin.everFurnace_1_20_1$lastGameTime;
@@ -79,34 +71,14 @@ public abstract class CampfireBlockEntityMixin {
         if (localLastGameTime == 0L) return;
 
         long deltaTime = currentGameTime - localLastGameTime;
-        if (deltaTime < EverFurnaceConfig.COMMON.minDeltaThreshold.get()) return;
+        if (deltaTime < EverFurnaceApi.getMinDeltaThreshold()) return;
 
-        deltaTime = Math.min(deltaTime, EverFurnaceConfig.COMMON.maxCatchupTicks.get());
+        deltaTime = Math.min(deltaTime, EverFurnaceApi.getMaxCatchupTicks());
 
-        NonNullList<ItemStack> items = blockEntity.getItems();
-        int[] cookingProgress = accessor.getCookingProgress();
-        int[] cookingTime     = accessor.getCookingTime();
+        if (!(world instanceof ServerLevel serverLevel)) return;
 
-        boolean anyCompleted = false;
-
-        for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).isEmpty()) continue;
-
-            int total = cookingTime[i];
-            if (total <= 0) continue;
-
-            int remaining = total - cookingProgress[i];
-            if (deltaTime >= remaining) {
-                // Push to total; the vanilla body's ++/threshold check completes it this tick.
-                cookingProgress[i] = total;
-                anyCompleted = true;
-            } else {
-                cookingProgress[i] += (int) deltaTime;
-            }
-        }
-
-        if (anyCompleted && world instanceof ServerLevel serverLevel) {
-            ModNetwork.sendCatchupParticles(serverLevel, pos);
-        }
+        final long finalDelta = deltaTime;
+        EverFurnaceApi.findHandler(blockEntity)
+                .ifPresent(handler -> handler.applyCatchup(blockEntity, finalDelta, serverLevel, pos));
     }
 }
