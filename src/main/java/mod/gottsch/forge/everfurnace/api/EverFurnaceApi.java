@@ -3,12 +3,15 @@ package mod.gottsch.forge.everfurnace.api;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 
 /**
  * Public API entry point for EverFurnace.
@@ -34,6 +37,13 @@ import java.util.function.LongSupplier;
 public final class EverFurnaceApi {
 
     private static final Map<BlockEntityType<?>, CookingCatchupHandler> HANDLERS = new LinkedHashMap<>();
+
+    // Capability-based fallbacks, matched in registration order when no exact-type
+    // handler exists.  This restores the implicit coverage the inline mixin used to
+    // give every AbstractFurnaceBlockEntity subclass before catch-up moved behind
+    // this registry: exact registration is the explicit override, the fallback is
+    // the structural default.  Never registration-only.
+    private static final List<Map.Entry<Predicate<BlockEntity>, CookingCatchupHandler>> FALLBACKS = new ArrayList<>();
 
     // Defaults match the config defaults; overwritten by bindConfig() on startup.
     private static BooleanSupplier catchupEnabled    = () -> true;
@@ -63,13 +73,44 @@ public final class EverFurnaceApi {
     }
 
     /**
-     * Look up the handler registered for the given block entity's type.
+     * Register a capability-based fallback handler, matched when no exact-type
+     * handler is registered for a block entity.
+     *
+     * <p>Use this to cover a whole family of block entities by structure rather
+     * than by exact type — e.g. {@code be instanceof AbstractFurnaceBlockEntity}
+     * to catch every modded furnace subclass that reuses the vanilla ticker.
+     * Fallbacks are tested in registration order and only consulted after the
+     * exact-type lookup misses, so an explicit {@link #registerHandler} always
+     * overrides a fallback.
+     *
+     * @param predicate matches the block entities this fallback should handle
+     * @param handler   the handler to invoke for matching block entities
+     */
+    public static void registerFallback(Predicate<BlockEntity> predicate,
+                                        CookingCatchupHandler handler) {
+        FALLBACKS.add(Map.entry(predicate, handler));
+    }
+
+    /**
+     * Look up the handler for the given block entity.
+     *
+     * <p>Exact-type registrations win first (explicit override); if none match,
+     * capability fallbacks are tested in registration order (structural default).
      *
      * @param be the block entity being ticked
-     * @return the registered handler, or {@link Optional#empty()} if none
+     * @return the matching handler, or {@link Optional#empty()} if none
      */
     public static Optional<CookingCatchupHandler> findHandler(BlockEntity be) {
-        return Optional.ofNullable(HANDLERS.get(be.getType()));
+        CookingCatchupHandler exact = HANDLERS.get(be.getType());
+        if (exact != null) {
+            return Optional.of(exact);
+        }
+        for (Map.Entry<Predicate<BlockEntity>, CookingCatchupHandler> fallback : FALLBACKS) {
+            if (fallback.getKey().test(be)) {
+                return Optional.of(fallback.getValue());
+            }
+        }
+        return Optional.empty();
     }
 
     // -------------------------------------------------------------------------
