@@ -7,7 +7,9 @@
     "IEverFurnaceBlockEntityMixin",
     "EverFurnaceBlockEntityMixin",
     "ICampfireBlockEntityMixin",
-    "CampfireBlockEntityMixin"
+    "CampfireBlockEntityMixin",
+    "IEverFurnaceBrewingStandMixin",
+    "BrewingStandBlockEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
