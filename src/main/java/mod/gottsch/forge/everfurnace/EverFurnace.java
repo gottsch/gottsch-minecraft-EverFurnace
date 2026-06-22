@@ -1,6 +1,7 @@
 package mod.gottsch.forge.everfurnace;
 
 import mod.gottsch.forge.everfurnace.api.EverFurnaceApi;
+import mod.gottsch.forge.everfurnace.core.catchup.BrewingStandCatchupHandler;
 import mod.gottsch.forge.everfurnace.core.catchup.CampfireCatchupHandler;
 import mod.gottsch.forge.everfurnace.core.catchup.FurnaceCatchupHandler;
 import mod.gottsch.forge.everfurnace.core.command.ModCommands;
@@ -8,6 +9,7 @@ import mod.gottsch.forge.everfurnace.core.config.EverFurnaceConfig;
 import mod.gottsch.forge.everfurnace.core.network.ModNetwork;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 
@@ -31,14 +33,19 @@ public class EverFurnace {
         );
 
         // Register built-in catch-up handlers for all vanilla cooking blocks.
-        FurnaceCatchupHandler  furnaceHandler  = new FurnaceCatchupHandler();
-        CampfireCatchupHandler campfireHandler = new CampfireCatchupHandler();
+        FurnaceCatchupHandler       furnaceHandler      = new FurnaceCatchupHandler();
+        CampfireCatchupHandler      campfireHandler     = new CampfireCatchupHandler();
+        BrewingStandCatchupHandler  brewingStandHandler = new BrewingStandCatchupHandler();
 
         EverFurnaceApi.registerHandler(BlockEntityType.FURNACE,       furnaceHandler);
         EverFurnaceApi.registerHandler(BlockEntityType.BLAST_FURNACE, furnaceHandler);
         EverFurnaceApi.registerHandler(BlockEntityType.SMOKER,        furnaceHandler);
         // Both CampfireBlock and SoulCampfireBlock share BlockEntityType.CAMPFIRE in 1.20.1.
         EverFurnaceApi.registerHandler(BlockEntityType.CAMPFIRE, campfireHandler);
+        EverFurnaceApi.registerHandler(BlockEntityType.BREWING_STAND, brewingStandHandler);
+        // Catch up modded brewing stands that subclass BrewingStandBlockEntity and
+        // reuse the vanilla ticker but register their own BlockEntityType.
+        EverFurnaceApi.registerFallback(be -> be instanceof BrewingStandBlockEntity, brewingStandHandler);
 
         // Capability default: catch up any modded furnace that subclasses
         // AbstractFurnaceBlockEntity and reuses the vanilla ticker, even though it
