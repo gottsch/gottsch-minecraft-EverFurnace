@@ -1,3 +1,12 @@
+/*
+ * This file is part of EverFurnace.
+ * Copyright (c) 2026 Mark Gottschling (gottsch)
+ *
+ * Licensed under the MIT License. See LICENSE.txt in the project root
+ * for the full license text.
+ *
+ * SPDX-License-Identifier: MIT
+ */
 package mod.gottsch.forge.everfurnace.core.catchup;
 
 import mod.gottsch.forge.everfurnace.api.CookingCatchupHandler;
@@ -12,6 +21,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 
@@ -136,17 +146,21 @@ public class BrewingStandCatchupHandler implements CookingCatchupHandler {
         }
     }
 
-    /** "[EverFurnace] Your brewing stand finished <n> brew(s) while you were away." */
+    /**
+     * "[EverFurnace] Your Brewing Stand finished <n> brew(s) while you were away."
+     *
+     * <p>The block noun is passed as a translatable argument rather than baked into
+     * the sentence, matching how the furnace messages are built.
+     */
     private static Component brewMessage(int brews) {
         return Component.literal("[EverFurnace] ")
                 .withStyle(style -> style.withColor(0xFFA500))
-                .append(Component.literal("Your brewing stand finished ")
-                        .withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                .append(Component.literal(String.valueOf(brews))
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)))
-                .append(Component.literal(brews == 1 ? " brew" : " brews")
-                        .withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                .append(Component.literal(" while you were away.")
+                .append(Component.translatable(
+                                brews == 1 ? "message.everfurnace.brewed.one"
+                                           : "message.everfurnace.brewed.many",
+                                Blocks.BREWING_STAND.getName(),
+                                Component.literal(String.valueOf(brews))
+                                        .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)))
                         .withStyle(style -> style.withColor(ChatFormatting.WHITE)));
     }
 }

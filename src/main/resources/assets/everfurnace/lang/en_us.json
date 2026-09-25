@@ -1,0 +1,9 @@
+{
+  "message.everfurnace.cooked.single.one": "Your %s cooked %s item while you were away.",
+  "message.everfurnace.cooked.single.many": "Your %s cooked %s items while you were away.",
+  "message.everfurnace.cooked.multi.one": "%s cooking block cooked a combined %s items while you were away.",
+  "message.everfurnace.cooked.multi.many": "%s cooking blocks cooked a combined %s items while you were away.",
+  "message.everfurnace.brewed.one": "Your %s finished %s brew while you were away.",
+  "message.everfurnace.brewed.many": "Your %s finished %s brews while you were away.",
+  "message.everfurnace.generic_furnace": "furnace"
+}

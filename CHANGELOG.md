@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3.0] - 2026-09-25
+
+### 📄 Changed
+
+- **EverFurnace is now MIT licensed** (previously LGPL). This is a more
+  permissive license: modpacks, forks and other mods can use and build on
+  EverFurnace freely. Nothing changes for players, and earlier releases keep
+  the license they were published under.
+
+### ✨ Added
+
+- **Catch-up messages now name the right block.** A smoker says "smoker", a blast
+  furnace says "blast furnace", and furnaces added by other mods use their own
+  name — instead of everything reporting as a plain "furnace".
+- **The mod can now be translated.** All of EverFurnace's messages have moved into
+  a language file, so they can be translated into other languages and each player
+  sees them in their own. English is included; translations are welcome.
+
+---
+
 ## [3.2.0] - 2026-06-22
 
 ### ✨ Added

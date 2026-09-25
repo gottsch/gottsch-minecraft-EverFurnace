@@ -1,3 +1,12 @@
+/*
+ * This file is part of EverFurnace.
+ * Copyright (c) 2026 Mark Gottschling (gottsch)
+ *
+ * Licensed under the MIT License. See LICENSE.txt in the project root
+ * for the full license text.
+ *
+ * SPDX-License-Identifier: MIT
+ */
 package mod.gottsch.forge.everfurnace.core.event;
 
 import mod.gottsch.forge.everfurnace.core.config.EverFurnaceConfig;
@@ -5,12 +14,16 @@ import mod.gottsch.forge.everfurnace.core.furnace.IEverFurnaceBlockEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractFurnaceMenu;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraftforge.event.entity.player.PlayerContainerEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -52,7 +65,8 @@ public class FurnaceEventHandler {
         if (EverFurnaceConfig.COMMON.notifyPlayerOnCatchup.get()) {
             int count = consumePendingNotification(furnace);
             if (count > 0) {
-                sendNotification(player, count);
+                sendNotification(player,
+                        blockDisplayName(player.level(), furnace.getBlockPos()), count);
                 dirty = true;
             }
         }
@@ -92,6 +106,9 @@ public class FurnaceEventHandler {
 
         int furnaceCount = 0;
         int totalItems   = 0;
+        // Remembered only for the single-furnace case, where naming the block is
+        // unambiguous. Mixed types are reported generically (see sendMultiNotification).
+        BlockPos singlePos = null;
 
         for (ChunkHolder holder : serverLevel.getChunkSource().chunkMap.getChunks()) {
             LevelChunk chunk = holder.getTickingChunk();
@@ -106,26 +123,16 @@ public class FurnaceEventHandler {
                 furnace.setChanged();
                 furnaceCount++;
                 totalItems += count;
+                singlePos = entry.getKey();
             }
         }
 
         if (totalItems <= 0) return;
 
         if (furnaceCount == 1) {
-            sendNotification(player, totalItems);
+            sendNotification(player, blockDisplayName(serverLevel, singlePos), totalItems);
         } else {
-            player.sendSystemMessage(
-                    Component.literal("[EverFurnace] ")
-                            .withStyle(style -> style.withColor(0xFFA500))
-                            .append(Component.literal(String.valueOf(furnaceCount))
-                                    .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)))
-                            .append(Component.literal(" furnaces cooked a combined ")
-                                    .withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                            .append(Component.literal(String.valueOf(totalItems))
-                                    .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)))
-                            .append(Component.literal(" items while you were away.")
-                                    .withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-            );
+            sendMultiNotification(player, furnaceCount, totalItems);
         }
     }
 
@@ -180,19 +187,64 @@ public class FurnaceEventHandler {
     }
 
     /**
-     * Sends the standard single-furnace catch-up notification to a player.
-     * Example: {@code [EverFurnace] Your furnace cooked 32 items while you were away.}
+     * The localized display name of the cooking block at {@code pos}, for use as a
+     * message argument.
+     *
+     * <p>{@code Block.getName()} returns a {@code translatable} component, so a
+     * smoker reads "Smoker", a blast furnace "Blast Furnace", and a modded furnace
+     * picked up by the {@code AbstractFurnaceBlockEntity} fallback yields its own
+     * name — no hardcoded per-block mapping needed, and each player sees it in
+     * their own language.
+     *
+     * <p>Pending notifications are persisted in block-entity NBT, and the login
+     * path resolves them by position, so the block may no longer be a furnace by
+     * the time it is read (broken or replaced while offline). Fall back to a
+     * generic noun rather than naming whatever now occupies the space.
      */
-    private static void sendNotification(Player player, int count) {
-        player.sendSystemMessage(
-                Component.literal("[EverFurnace] ")
-                        .withStyle(style -> style.withColor(0xFFA500))
-                        .append(Component.literal("Your furnace cooked ")
-                                .withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-                        .append(Component.literal(String.valueOf(count))
-                                .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true)))
-                        .append(Component.literal((count == 1 ? " item" : " items") + " while you were away.")
-                                .withStyle(style -> style.withColor(ChatFormatting.WHITE)))
-        );
+    private static Component blockDisplayName(Level level, BlockPos pos) {
+        if (pos == null) {
+            return Component.translatable("message.everfurnace.generic_furnace");
+        }
+        BlockState state = level.getBlockState(pos);
+        return state.getBlock() instanceof AbstractFurnaceBlock
+                ? state.getBlock().getName()
+                : Component.translatable("message.everfurnace.generic_furnace");
+    }
+
+    /** The orange "[EverFurnace] " brand tag. Intentionally not translated. */
+    private static MutableComponent prefix() {
+        return Component.literal("[EverFurnace] ")
+                .withStyle(style -> style.withColor(0xFFA500));
+    }
+
+    private static Component count(int value) {
+        return Component.literal(String.valueOf(value))
+                .withStyle(style -> style.withColor(ChatFormatting.GOLD).withBold(true));
+    }
+
+    /**
+     * Sends the standard single-block catch-up notification to a player.
+     * Example: {@code [EverFurnace] Your Smoker cooked 32 items while you were away.}
+     */
+    private static void sendNotification(Player player, Component blockName, int count) {
+        player.sendSystemMessage(prefix().append(Component.translatable(
+                        count == 1 ? "message.everfurnace.cooked.single.one"
+                                   : "message.everfurnace.cooked.single.many",
+                        blockName, count(count))
+                .withStyle(style -> style.withColor(ChatFormatting.WHITE))));
+    }
+
+    /**
+     * Sends the aggregated multi-block catch-up notification.
+     *
+     * <p>Deliberately generic: a login sweep can aggregate a furnace, a smoker and a
+     * blast furnace into one message, and no single block name would be correct.
+     */
+    private static void sendMultiNotification(Player player, int furnaceCount, int totalItems) {
+        player.sendSystemMessage(prefix().append(Component.translatable(
+                        furnaceCount == 1 ? "message.everfurnace.cooked.multi.one"
+                                          : "message.everfurnace.cooked.multi.many",
+                        count(furnaceCount), count(totalItems))
+                .withStyle(style -> style.withColor(ChatFormatting.WHITE))));
     }
 }
